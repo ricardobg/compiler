@@ -1,0 +1,44 @@
+RicardC
+
+Declaração de função:
+
+TIPO NOME_FUNC()
+
+WIRTH:
+
+PROGRAM = { CONSTRUCTION } .
+CONSTRUCTION = FUNCTION | VAR_DECLARATION .
+STATEMENT = DECLARATION | (EXPRESSION ";") | COMMAND | ";" .
+STATEMENT_BLOCK = "{" { STATEMENT } "}" 
+FUNCTION = ( TYPE | "void" ) NAME "(" ((VAR_DECLARATION { "," VAR_DECLARATION) | "void") }  ")" STATEMENT_BLOCK .
+VAR_DECLARATION = TYPE NAME { "[" INT_NUMBER "]" } .
+DECLARATION = TYPE VAR_NAME [ "=" EXPRESSION ] { "," VAR_NAME [ "=" EXPRESSION ] } ";" .
+
+EXPRESSION = ({ "(" } EXPRESSION { ")" }) | BINARY_EXPRESSION | ASSIGNMENT_EXPRESSION | UNARY_EXPRESSION | VALUE | ( EXPRESSION { "," EXPRESSION } ) .
+VALUE = NAME | ( NAME "[" EXPRESSION "]" ) | NUMBER .
+ASSIGNMENT_EXPRESSION = NAME "=" EXPRESSION .
+BINARY_EXPRESSION = EXPRESSION BINARY_OPERATOR EXPRESSION .
+UNARY_EXPRESSION = ( PRE_UNARY_OPERATOR EXPRESSION ) | ( EXPRESSION POS_UNARY_OPERATOR ) .
+PRE_UNARY_OPERATOR = "!" | "~" | "++" | "--" | "*" | "&" | ( "(" TYPE ")" )  ) .
+POS_UNARY_OPERATOR = "++" | "--" .
+BINARY_OPERATOR = "==" | ">" | ">=" | "<" | "<=" | "+" | "-" | "*" | "/" | "&&" | "||" | "&"  | "|" | "^" .
+
+COMMAND = BRANCH | LOOP .
+BRANCH = "if(" EXPRESSION ")" ( STATEMENT_BLOCK | STATEMENT ) { "else" ( BRANCH | ( STATEMENT_BLOCK | STATEMENT ))  .
+LOOP = FOR | WHILE | DO_WHILE .
+FOR = "for(" DECLARATION ";" EXPRESSION ";" EXPRESSION ")" ( STATEMENT_BLOCK | STATEMENT ) .
+WHILE = "while(" EXPRESSION ")" ( STATEMENT_BLOCK | STATEMENT ) .
+DO_WHILE = "do" ( STATEMENT_BLOCK | STATEMENT ) "while(" EXPRESSION ");" .
+
+TYPE = ( "int" | "float" | "double" | "char" ) { "*" }
+
+NAME = ( LETTER | "_" ) { ALPHANUMERIC_CHAR } .
+VAR_NAME =  NAME { "[" INT_NUMBER "]" } .
+NUMBER = INT_NUMBER | FLOAT_NUMBER .
+FLOAT_NUMBER = ( INT_NUMBER | "") "." INT_NUMBER
+INT_NUMBER = NUMERIC_CHAR { NUMERIC_CHAR } .
+
+ALPHANUMERIC_CHAR = NUMERIC_CHAR | LETTER | "_" .
+NUMERIC_CHAR =  "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" .
+LETTER = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "X" | "Z" |
+"a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "x" | "z" .
