@@ -1,11 +1,3 @@
-RicardC
-
-Declaração de função:
-
-TIPO NOME_FUNC()
-
-WIRTH:
-
 PROGRAM = { CONSTRUCTION } .
 CONSTRUCTION = FUNCTION | VAR_DECLARATION .
 STATEMENT = DECLARATION | (EXPRESSION ";") | COMMAND | ";" .
@@ -37,8 +29,3 @@ VAR_NAME =  NAME { "[" INT_NUMBER "]" } .
 NUMBER = INT_NUMBER | FLOAT_NUMBER .
 FLOAT_NUMBER = ( INT_NUMBER | "") "." INT_NUMBER
 INT_NUMBER = NUMERIC_CHAR { NUMERIC_CHAR } .
-
-ALPHANUMERIC_CHAR = NUMERIC_CHAR | LETTER | "_" .
-NUMERIC_CHAR =  "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" .
-LETTER = "A" | "B" | "C" | "D" | "E" | "F" | "G" | "H" | "I" | "J" | "L" | "M" | "N" | "O" | "P" | "Q" | "R" | "S" | "T" | "U" | "V" | "X" | "Z" |
-"a" | "b" | "c" | "d" | "e" | "f" | "g" | "h" | "i" | "j" | "l" | "m" | "n" | "o" | "p" | "q" | "r" | "s" | "t" | "u" | "v" | "x" | "z" .
