@@ -5,7 +5,7 @@
 Programa que converte notação de Wirth para Autômato de Pilha Estruturado
 """
 
-import sys, json, pydot
+import sys, json, pydot, re
 
 DEBUG = True
 class Atomo:
@@ -39,21 +39,20 @@ def LeAtomos(linha):
 	last = ''
 	lendo_terminal = False
 	atomos = []
-	for seq in linha.strip().split('"'):
+	for seq in linha.strip().split():
 		if seq == '':
-			lendo_terminal = not lendo_terminal
 			continue
-		if lendo_terminal:
-			atomos.append(Atomo(Atomo.TERMINAL, seq))
-		else:
-			seq2 = ''.join(seq.split())
-			for char in seq2:
-				if char in ['{','}','(',')','|','[',']','=','.']:
-					atomos.append(Atomo(Atomo.SIMBOLO, char))
-				else:
-					atomos.append(Atomo(Atomo.NAO_TERMINAL, char))
-		lendo_terminal = not lendo_terminal
-	print [t.valor for t in atomos]
+		p = re.compile('(?:[{}\(\)\[\]\=\.])|(?:["][^"]+["])|(?:[a-z0-9_]+)', re.IGNORECASE)
+		atomos.extend(p.findall(seq))
+	print atomos
+	for i,val in enumerate(atomos):
+			if val in ['{','}','(',')','|','[',']','=','.']:
+				atomos[i] = Atomo(Atomo.SIMBOLO, val)
+			elif val.find('"') == -1:
+				atomos[i] = Atomo(Atomo.NAO_TERMINAL, val)
+			else:
+				atomos[i] = Atomo(Atomo.TERMINAL, val[1:-1])
+	#print [t.valor for t in atomos]
 	return atomos
 
 

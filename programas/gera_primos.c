@@ -1,4 +1,4 @@
-void gera_primos(int primes[], int n)
+void gera_primos(int primes[10], int n)
 {
    int  i = 3, count, c;
  
