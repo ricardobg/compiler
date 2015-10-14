@@ -1,30 +1,14 @@
-PROGRAM = { CONSTRUCTION } .
-CONSTRUCTION = FUNCTION | VAR_DECLARATION .
-STATEMENT = DECLARATION | (EXPRESSION ";") | COMMAND | ";" .
-STATEMENT_BLOCK = "{" { STATEMENT } "}" 
-FUNCTION = ( DEF_TYPE | "void" ) NAME "(" ((VAR_DECLARATION { "," VAR_DECLARATION) | "void") }  ")" STATEMENT_BLOCK .
-VAR_DECLARATION = DEF_TYPE NAME { "[" NUMBER "]" } .
-DECLARATION = DEF_TYPE NAME [ "=" EXPRESSION ] { "," NAME [ "=" EXPRESSION ] } ";" .
+PROGRAM = { ( "func" FUNCTION ) | ("declare" VAR_DECLARATION ) } .
 
-EXPRESSION = ({ "(" } EXPRESSION { ")" }) | BINARY_EXPRESSION | ASSIGNMENT_EXPRESSION | UNARY_EXPRESSION | VALUE |FUNC_CALL| ( EXPRESSION { "," EXPRESSION } ) .
-VALUE = NAME | ( NAME "[" EXPRESSION "]" ) | NUMBER  .
-ASSIGNMENT_EXPRESSION = NAME "=" EXPRESSION .
-BINARY_EXPRESSION = EXPRESSION BINARY_OPERATOR EXPRESSION .
-UNARY_EXPRESSION = ( PRE_UNARY_OPERATOR EXPRESSION ) | ( EXPRESSION POS_UNARY_OPERATOR ) .
-PRE_UNARY_OPERATOR = "!" | "~" | "++" | "--" | "*" | "&" | ( "(" DEF_TYPE ")" )  ) .
-POS_UNARY_OPERATOR = "++" | "--" .
-BINARY_OPERATOR = "==" | ">" | ">=" | "<" | "<=" | "+" | "-" | "*" | "/" | "%" | "&&" | "||" | "&"  | "|" | "^" .
-FUNC_CALL = NAME "(" [ EXPRESSION { "," EXPRESSION } ] ")"
+STATEMENT_BLOCK = "{" { ("declare" DECLARATION) | ( EXPRESSION ";") | ( "if" "(" EXPRESSION ")" STATEMENT_BLOCK { "elsif" "(" EXPRESSION ")" STATEMENT_BLOCK } [ "else" STATEMENT_BLOCK ] ) | ( "while" "(" EXPRESSION ")" STATEMENT_BLOCK ) | ( "SET" NAME "=" EXPRESSION ";" ) } "}" .
 
-COMMAND = BRANCH | LOOP .
-BRANCH = "if(" EXPRESSION ")" ( STATEMENT_BLOCK | STATEMENT ) { "else" ( BRANCH | ( STATEMENT_BLOCK | STATEMENT ))  .
-LOOP = FOR | WHILE | DO_WHILE .
-FOR = "for(" DECLARATION ";" EXPRESSION ";" EXPRESSION ")" ( STATEMENT_BLOCK | STATEMENT ) .
-WHILE = "while(" EXPRESSION ")" ( STATEMENT_BLOCK | STATEMENT ) .
-DO_WHILE = "do" ( STATEMENT_BLOCK | STATEMENT ) "while(" EXPRESSION ");" .
+FUNCTION = ( TYPE | "void" ) NAME "(" [ VAR_DECLARATION { "," VAR_DECLARATION } ] ")" STATEMENT_BLOCK .
+VAR_DECLARATION = TYPE NAME .
+DECLARATION = TYPE NAME [ "=" EXPRESSION ] { "," NAME [ "=" EXPRESSION ] } ";" .
+
+EXPRESSION = ( "(" EXPRESSION ")" ) | ( ( "!" | "--" | "++" ) EXPRESSION ) | ( ( ( NAME [ ( "(" [ EXPRESSION { "," EXPRESSION } ] ")") | ( "[" EXPRESSION "]"  )  ] ) | NUMBER ) [ ("==" | ">" | ">=" | "<" | "<=" | "+" | "-" | "*" | "/" | "%" | "&&" | "||") EXPRESSION ] ) .
 
 
-DEF_TYPE = TYPE { "*" }
+TYPE = ( "int" | "char" ) [ "[" NUMBER "]" ] .
 NAME = ( LETTER | "_" ) { ALPHANUMERIC_CHAR } .
 NUMBER = NUMERIC_CHAR { NUMERIC_CHAR } .
-TYPE = ( "int" | "char" ) 

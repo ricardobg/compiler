@@ -42,7 +42,7 @@ def LeAtomos(linha):
 	for seq in linha.strip().split():
 		if seq == '':
 			continue
-		p = re.compile('(?:[{}\(\)\[\]\=\.])|(?:["][^"]+["])|(?:[a-z0-9_]+)', re.IGNORECASE)
+		p = re.compile('(?:[{}\(\)\[\]\=\.|])|(?:["][^"]+["])|(?:[a-z0-9_]+)', re.IGNORECASE)
 		atomos.extend(p.findall(seq))
 	print atomos
 	for i,val in enumerate(atomos):
@@ -55,6 +55,33 @@ def LeAtomos(linha):
 	#print [t.valor for t in atomos]
 	return atomos
 
+def estados_inatingiveis(transicoes, estados):
+	rets = estados[:]
+	for transicao in transicoes:
+		if len(transicao[1]) >= 1:
+			 if transicao[1][0] in rets:
+			 	rets.remove(transicao[1][0])
+	return rets
+def transicao_em_vazio(transicoes):
+	for i, transicao in enumerate(transicoes):
+		if len(transicao[1]) == 1 and len(transicao[0][1]) == 0:
+			 return i
+	return -1
+
+def encontra_transicoes_out(estado, transicoes):
+	lista = []
+	for i, transicao in enumerate(transicoes):
+		if transicao[0][0] == estado:
+			 lista.append(i)
+	return lista
+
+def encontra_transicoes_in(estado, transicoes):
+	lista = []
+	for i, transicao in enumerate(transicoes):
+		if len(transicao[1]) >= 1 and transicao[1][0] == estado:
+			 lista.append(i)
+	return lista
+
 
 def main():
 	if len(sys.argv) != 3:
@@ -63,12 +90,12 @@ def main():
 	maqs = {}
 	maq_inicial = ''
    	with open(sys.argv[1],"r") as arquivo:
+   		contador = 0
+   		estado = 0
 		for raw_linha in arquivo:
 			pilha = []
-			contador = 0
 			leu = False
 			submaquina = Submaquina()
-			estado = 0
 			for atomo in LeAtomos(raw_linha):
 				if not leu:
 					if maq_inicial == '':
@@ -76,24 +103,24 @@ def main():
 					maqs[atomo.valor] = submaquina
 					leu = True;
 					# Adiciona transição de retorno no estado de aceitação
-					submaquina.estado_inicial = 0
-					submaquina.estados.append(0);
-					submaquina.estados.append(1);
-					submaquina.estados_finais.append(1);
-					submaquina.transicoes.append([[1, ""], []])
-					contador = 1
-					estado = 0
+					submaquina.estado_inicial = str(contador)
+					submaquina.estados.append(str(contador));
+					submaquina.estados.append(str(contador+1));
+					submaquina.estados_finais.append(str(contador+1));
+					submaquina.transicoes.append([[str(contador+1), ""], []])
+					estado = contador
+					contador += 2
 				else:
 					if atomo.tipo == Atomo.TERMINAL:
 						if atomo.valor not in submaquina.alfabeto:
 							submaquina.alfabeto.append(atomo.valor)
 						submaquina.transicoes.append([[str(estado), atomo.valor], [str(contador)]])
-						submaquina.estados.append(contador)
+						submaquina.estados.append(str(contador))
 						estado = contador
 						contador += 1
 					elif atomo.tipo == Atomo.NAO_TERMINAL:
 						submaquina.transicoes.append([[str(estado), ""], [str(contador), atomo.valor]])
-						submaquina.estados.append(contador)
+						submaquina.estados.append(str(contador))
 						estado = contador
 						contador += 1
 					elif atomo.tipo == Atomo.SIMBOLO:
@@ -103,7 +130,7 @@ def main():
 							if atomo.valor == '{':
 								estado = contador
 							pilha.append((estado, contador))
-							submaquina.estados.append(contador)
+							submaquina.estados.append(str(contador))
 							contador += 1
 						elif atomo.valor in ['}',')',']','.']:
 							last = pilha.pop()
@@ -113,6 +140,52 @@ def main():
 							submaquina.transicoes.append([[str(estado), ""], [str(pilha[-1][1])]])
 							estado = pilha[-1][0]
 				print atomo.valor + "|" + str(estado) + "|" + str(contador) + "|" + str(pilha) + "|" + str(submaquina.transicoes[-1])
+			# Remove não-determinismos
+			if DEBUG:
+				print "Removendo não determinismos..."
+
+			#Remove transições em vazio
+			while True:
+				trans = transicao_em_vazio(submaquina.transicoes)
+				
+				if trans == -1:
+					break
+				estado_origem = submaquina.transicoes[trans][0][0]
+				estado_destino = submaquina.transicoes[trans][1][0]
+				transicoes_saindo = encontra_transicoes_out(estado_destino, submaquina.transicoes)
+				transicoes_chegando = encontra_transicoes_in(estado_destino, submaquina.transicoes)
+				for out in transicoes_saindo:
+					submaquina.transicoes[out][0][0] = estado_origem
+				for inn in transicoes_chegando:
+					submaquina.transicoes[inn][1][0] = estado_origem
+				print submaquina.estados
+				submaquina.estados.remove(estado_destino)
+				if (estado_destino in submaquina.estados):
+					print "PAAAU MONSTROOOO"
+					print estado_origem
+					print estado_destino
+					return -1
+				if estado_destino in submaquina.estados_finais:
+					submaquina.estados_finais.remove(estado_destino)
+					submaquina.estados_finais.append(estado_origem)
+				if submaquina.estado_inicial == estado_destino:
+					submaquina.estado_inicial = estado_origem
+				del submaquina.transicoes[trans]
+			#Remove estados inatingíveis
+			while True:
+				estados = estados_inatingiveis(submaquina.transicoes, submaquina.estados)
+				if submaquina.estado_inicial in estados:
+					estados.remove(submaquina.estado_inicial)
+				if len(estados) == 0:
+					break
+				for estado in estados:
+					transicoes_saindo = encontra_transicoes_out(estado, submaquina.transicoes)
+					for i,transicao in enumerate(transicoes_saindo):
+						del submaquina.transicoes[i]
+					submaquina.estados.remove(estado)
+					if estado in submaquina.estados_finais:
+						submaquina.estados_finais.remove(estado)
+
 	obj = {}
 	obj["maquina_inicial"] = maq_inicial
 	obj["maquinas"] = maqs
