@@ -1,21 +1,18 @@
-void selection_sort(int array[(5+2)*4], int n)
-{
-   int c, d, position, swap;
-
-   for ( c = 0 ; c < ( n - 1 ) ; c++ )
-   {
-      position = c;
- 
-      for ( d = c + 1 ; d < n ; d++ )
-      {
-         if ( array[position] > array[d]++ )
-            position = d;
-      }
-      if ( position != c )
-      {
-         swap = array[c];
-         array[c] = array[position];
-         array[position] = swap;
-      }
+void selection_sort(int num[], int tam) 
+ { 
+   int i, j, min, aux;
+   for (i = 0; i < (tam-1); i++) 
+    {
+     min = i;
+     for (j = (i+1); j < tam; j++) {
+       if(num[j] < num[min])
+         min = j;
+      
+     }
+     if (i != min) {
+       aux = num[i];
+       num[i] = num[min];
+       num[min] = aux;
+     }
    }
-}
+ }

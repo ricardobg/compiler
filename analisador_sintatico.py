@@ -66,13 +66,13 @@ def LeAtomos(texto, n_linha, comentario):
     for i, cadeia in enumerate(lidos):
         tokens = find(cadeia, simbolos_compostos + simbolos)
         for token in tokens:
-            if token in ['do', 'while', 'for', 'else', 'if', 'int', 'char', 'void', 'return', 'SET' ]:
+            if token in ['do', 'while', 'for', 'else', 'if', 'int', 'char', 'void', 'return', 'float' ]:
                 atomos.append(Atomo(token, token, n_linha, pos))
             elif token in simbolos:
                 atomos.append(Atomo(token, token, n_linha, pos))
             elif token in simbolos_compostos:
                 atomos.append(Atomo(token, token, n_linha, pos))
-            elif token.isdigit():
+            elif token.isdigit() or (len(token.split('.')) == 2  and (len(token.split('.')[0]) == 0 or token.split('.')[0].isdigit()) and token.split('.')[1].isdigit()):
                 atomos.append(Atomo("NUMBER", token, n_linha, pos))
             elif name_exp.match(token) != None: 
                 atomos.append(Atomo("NAME", token, n_linha, pos))
