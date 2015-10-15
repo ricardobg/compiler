@@ -1,8 +1,0 @@
-PROGRAM = { (( "int" | "char" | "void" ) "NAME" "(" (((("int" | "char") "NAME" { "[" "NUMBER" "]" }) { "," (("int" | "char") "NAME" { "[" "NUMBER" "]" })) | "void") }  ")" STATEMENT_BLOCK) } .
-
-STATEMENT_BLOCK = "{" { (("int" | "char") "NAME" [ "=" EXPRESSION ] { "," "NAME" [ "=" EXPRESSION ] } ";" ) | (EXPRESSION ";") | ( BRANCH | ("while" "(" EXPRESSION ")" ( STATEMENT_BLOCK ) ) ) | ";"  } "}" .
-
-
-EXPRESSION = ( "(" EXPRESSION ")" ) | ( ( "NAME" ["[" ("NAME" | "NUMBER") "]"] | "NUMBER" ) ("==" | ">" | ">=" | "<" | "<=" | "+" | "-" | "*" | "/" | "%" | "&&" | "||") ( "NAME" ["[" ("NAME" | "NUMBER") "]"] | "NUMBER" ) ) | ( "!"  EXPRESSION ) | ( "NAME" ["[" ("NAME" | "NUMBER") "]"] | "NUMBER" ) | ("NAME" "(" [ EXPRESSION { "," EXPRESSION } ] ")") .
-
-BRANCH = "if" "(" EXPRESSION ")" ( STATEMENT_BLOCK ) { "else" ( BRANCH | ( STATEMENT_BLOCK )) }  .

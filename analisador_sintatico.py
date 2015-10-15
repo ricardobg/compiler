@@ -7,9 +7,81 @@ Created on Mon Jun  8 07:47:36 2015
 Programa para simular autômatos finitos.
 """
 
-import sys, json, pydot, analisador_lexico
+import sys, json, pydot, re
 
 DEBUG = True
+
+#Analisador Léxico
+class Atomo:
+    def __init__(self, tipo, valor, n_linha, n_coluna):
+        self.tipo = tipo
+        self.valor = valor
+        self.n_linha = n_linha
+        self.n_coluna = n_coluna
+
+#Retorna uma tupla, primeiro item é uma lista com o texto já quebrado e a segunda é a lista com os tokens
+def find(texto, itens):
+    lista = []
+    txt = texto[:]
+    if len(txt) == 0:
+        return []
+    for i in itens:
+        pos = txt.find(i)
+        if pos != -1:
+            lista.extend(find(txt[0:pos], itens))
+            lista.append(txt[pos:pos+len(i)])
+            lista.extend(find(txt[pos+len(i):len(txt)], itens))
+            break
+    if len(lista) == 0 and len(texto) > 0:
+        lista.append(txt)
+    return lista
+
+def LeAtomos(texto, n_linha, comentario):
+    #Remove espaços
+    name_exp = re.compile('^[a-z_]([a-z0-9_]*)$' , re.IGNORECASE)
+   # check_exp = re.compile('^(?:(?:(?:==)|(?:>=)|(?:<=)|(?:[|][|])|(?:&&))|(?:-)|(?:[+{}\(\)\[\]\+\*\/=\<\>\!\,\;])|(?:[a-z0-9]+))+$', re.IGNORECASE)
+   # all_exp = re.compile('(?:(?:==)|(?:>=)|(?:<=)|(?:[|][|])|(?:&&))|(?:-)|(?:[+{}\(\)\[\]\+\*\/=\<\>\!\,\;])|(?:[a-z0-9]+)', re.IGNORECASE)
+    lidos = []
+    if comentario:
+        pos = texto.find('*/')
+        
+        if pos == -1:
+            return ([], True)
+        else:
+            comentario = False
+            lidos = texto[pos+2:].strip().split()
+    else:
+        pos = texto.find('/*')
+        if pos != -1:
+            lidos = texto[:pos].strip().split()
+            comentario = True
+        else:
+            lidos = texto.strip().split()
+
+    simbolos = ['-', '+', '*', '/', '%', '!', '=', '>', '<', ',', ';', '(', ')', '[', ']', '{', '}']
+    simbolos_compostos = ['&&', '||', '>=', '<=', '==', '++', '--', '!=' ]
+    atomos = []
+    #Gera atomos
+    pos = 0
+    for i, cadeia in enumerate(lidos):
+        tokens = find(cadeia, simbolos_compostos + simbolos)
+        for token in tokens:
+            if token in ['do', 'while', 'for', 'else', 'if', 'int', 'char', 'void', 'return', 'SET' ]:
+                atomos.append(Atomo(token, token, n_linha, pos))
+            elif token in simbolos:
+                atomos.append(Atomo(token, token, n_linha, pos))
+            elif token in simbolos_compostos:
+                atomos.append(Atomo(token, token, n_linha, pos))
+            elif token.isdigit():
+                atomos.append(Atomo("NUMBER", token, n_linha, pos))
+            elif name_exp.match(token) != None: 
+                atomos.append(Atomo("NAME", token, n_linha, pos))
+            else:
+                raise ValueError(token, n_linha, pos)
+            pos += len(token)
+        pos += len(cadeia)
+    return (atomos, comentario)
+
 
 class Automato:
     def __init__(self, estados, estado_inicial, estados_finais, alfabeto, transicoes):
@@ -40,7 +112,7 @@ class Automato:
 def main():
     # Checa os parâmetros
     if (len(sys.argv) != 3):
-        print("Uso: " + sys.argv[0] + " <regras_do_automato> <cadeias>")
+        print("Uso: " + sys.argv[0] + " <regras_do_automato> <cadeia>")
         sys.exit()
     
     # Lê arquivo de entrada
@@ -51,50 +123,22 @@ def main():
     grafo = pydot.Dot(graph_type="digraph", rankdir='LR') 
     clusters = []
     for maq in dados["maquinas"]:
-        subgrafo_nos = []
-        if maq == dados["maquina_inicial"]:
-            cluster = pydot.Cluster(maq, label=maq, fontname="bold")
-        else:
-            cluster = pydot.Cluster(maq, label=maq)
-        clusters.append(cluster)
-
         if DEBUG:
             print "Automato '" + maq + "' lido:"
         automatos[maq] = Automato(dados["maquinas"][maq]["estados"], dados["maquinas"][maq]["estado_inicial"]\
             , dados["maquinas"][maq]["estados_finais"], dados["maquinas"][maq]["alfabeto"], dados["maquinas"][maq]["transicoes"])
-        # Adiciona ao grafo os estados
-        for estado in automatos[maq].estados:
-            if estado in automatos[maq].estados_finais:
-                no = pydot.Node(estado, shape="doublecircle")
-            else:
-                no = pydot.Node(estado, shape="circle")
-            subgrafo_nos.append(no)
-            cluster.add_node(no)
-        no_invisivel = pydot.Node("INVISIVEL" + maq, style="invisible")
-        cluster.add_node(no_invisivel)
-        orig = [t for t in subgrafo_nos if t.get_name().replace("'","").replace('"','') == automatos[maq].estado_inicial]
-        cluster.add_edge(pydot.Edge(no_invisivel, orig[0]))
-        # Adiciona as transições
-        for transicao in automatos[maq].transicoes:
-            orig = [t for t in subgrafo_nos if t.get_name().replace("'","").replace('"','') == transicao[0]]
-            # Transição normal
-            print transicao
-            print automatos[maq].transicoes[transicao]
-            if len(automatos[maq].transicoes[transicao]) == 1:
-                dest = [t for t in subgrafo_nos if t.get_name().replace("'","").replace('"','') == automatos[maq].transicoes[transicao][0]]
-                cluster.add_edge(pydot.Edge(orig[0], dest[0], label= " " + transicao[1]))
-            # Transição de empilhar
-            elif len(automatos[maq].transicoes[transicao]) == 2:
-                dest = [t for t in subgrafo_nos if t.get_name().replace("'","").replace('"','') == automatos[maq].transicoes[transicao][0]]
-
-                cluster.add_edge(pydot.Edge(orig[0], dest[0], label= " " + automatos[maq].transicoes[transicao][1], style="dashed"))
-        grafo.add_subgraph(cluster)
-    grafo.write_png("grafo.png")
-    programa =  open(sys.argv[2],"r").read()
-    atomos = LeAtomos(programa)
-
-    print "--------------------------------------------------------------------"
-    print "Lendo cadeia "
+    linhas =  open(sys.argv[2],"r").readlines()
+    atomos = []
+    comentario = False
+    for i,l in enumerate(linhas):
+        try:
+            r = LeAtomos(l, i, comentario)
+            comentario = r[1]
+            atomos.extend(r[0])
+        except ValueError as err:
+            print "Símbolo '" + err.args[0] + "' inválido na linha " + str(err.args[1]) + ":"
+            print linhas[err.args[1]] ,
+            return
     # Inicia autômato
     automato_atual = dados["maquina_inicial"]
     estado_atual = automatos[automato_atual].estado_inicial
@@ -102,24 +146,23 @@ def main():
     pilha = []
     # Variável para rejeitar
     rejeitar = False
-    leitura = leitura.split()[0]
-    cadeia_lida = ""
+    cadeia_lida = []
     for atomo in atomos:
-        ret = le_atomo(simbolo, automatos, estado_atual, automato_atual, pilha)
-        cadeia_lida += simbolo
+        cadeia_lida.append(atomo)
+        ret = le_atomo(atomo.tipo, automatos, estado_atual, automato_atual, pilha)
+        
         #Rejeita cadeia
         if len(ret) == 0:
             rejeitar = True
             break
         #Tentou desempilhar
         elif len(ret) == 1:
-            if cadeia_lida != leitura:
+            if not len(cadeia_lida) == len(atomos):
                 rejeitar = True
             break
         estado_atual = ret[0]
         automato_atual = ret[1]
 
-    #Tenta ler mais
     while automatos[automato_atual].transicoes.has_key((estado_atual, "")):
         if len(automatos[automato_atual].transicoes[(estado_atual, "")]) == 1:
             if DEBUG:
@@ -127,18 +170,32 @@ def main():
             estado_atual = automatos[automato_atual].transicoes[(estado_atual, "")][0];
         else:
             break
+    #Tenta desempilhar
+    while len(pilha) > 0 and not rejeitar:
+        if automatos[automato_atual].transicoes.has_key((estado_atual, "")):
+            transicao = automatos[automato_atual].transicoes[(estado_atual, "")]
+            # Desempilha
+            if len(transicao) == 0:
+                if DEBUG:
+                    print automato_atual + ": Saindo do estado " + estado_atual + " e desempilhando estado " + pilha[-1][0] + u", indo para a submáquina " + pilha[-1][1]
+                desempilha = pilha.pop()
+                estado_atual = desempilha[0]
+                automato_atual = desempilha[1]
+                while automatos[automato_atual].transicoes.has_key((estado_atual, "")):
+                    if len(automatos[automato_atual].transicoes[(estado_atual, "")]) == 1:
+                        if DEBUG:
+                            print automato_atual + ": Saindo do estado " + estado_atual + " e consumindo vazio para ir para o estado " + automatos[automato_atual].transicoes[(estado_atual, "")][0]
+                        estado_atual = automatos[automato_atual].transicoes[(estado_atual, "")][0];
+                    else:
+                        break
+        else:
+            break
 
     if (not rejeitar) and len(pilha) == 0 and automatos[automato_atual].estados_finais.count(estado_atual) > 0:
-        print "Cadeia " + leitura + " aceita no estado " + estado_atual
+        print "Programa aceito!" 
     else:
-       
-        print "Cadeia " + leitura + " não aceita",
-        if rejeitar:
-            print u"pois não foi encontrada uma transição"
-        elif len(pilha) > 0:
-            print u"pois a pilha não está vazia: " + str(pilha)
-        else:
-            print u"pois está em um estado de rejeição: " + estado_atual
+        print "Erro de Sintaxe na linha " + str(cadeia_lida[-1].n_linha+1) + ". Token '" + cadeia_lida[-1].valor + "' não esperado: "
+        print linhas[cadeia_lida[-1].n_linha] ,
 
 def le_atomo(simbolo, automatos, estado_atual, automato_atual, pilha):
     # Transição normal

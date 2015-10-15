@@ -1,4 +1,4 @@
-void selection_sort(int array[], int n)
+void selection_sort(int array[(5+2)*4], int n)
 {
    int c, d, position, swap;
 
@@ -8,7 +8,7 @@ void selection_sort(int array[], int n)
  
       for ( d = c + 1 ; d < n ; d++ )
       {
-         if ( array[position] > array[d] )
+         if ( array[position] > array[d]++ )
             position = d;
       }
       if ( position != c )
