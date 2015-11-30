@@ -1,3 +1,4 @@
+#!/usr/local/bin/python2
 # -*- coding: utf-8 -*-
 """
 @author: ricardo
@@ -166,7 +167,7 @@ def main():
 				#print atomo.valor + "|" + str(estado) + "|" + str(contador) + "|" + str(pilha) + "|" + str(submaquina.transicoes[-1])
 
 			# Remove não-determinismos
-			#continue
+			continue
 			if DEBUG:
 				print "Removendo não determinismos..."
 			while True:

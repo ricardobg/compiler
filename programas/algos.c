@@ -9,7 +9,7 @@ int is_palindrome(int n)
       temp = temp/10;
    }
  
-   if ( n == reverse )
+   if (n == reverse)
       return 1;
    else
       return 0;

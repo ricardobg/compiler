@@ -1,3 +1,4 @@
+#!/usr/local/bin/python2
 # -*- coding: utf-8 -*-
 """
 Created on Mon Jun  8 07:47:36 2015
@@ -39,8 +40,6 @@ def find(texto, itens):
 def LeAtomos(texto, n_linha, comentario):
     #Remove espaços
     name_exp = re.compile('^[a-z_]([a-z0-9_]*)$' , re.IGNORECASE)
-   # check_exp = re.compile('^(?:(?:(?:==)|(?:>=)|(?:<=)|(?:[|][|])|(?:&&))|(?:-)|(?:[+{}\(\)\[\]\+\*\/=\<\>\!\,\;])|(?:[a-z0-9]+))+$', re.IGNORECASE)
-   # all_exp = re.compile('(?:(?:==)|(?:>=)|(?:<=)|(?:[|][|])|(?:&&))|(?:-)|(?:[+{}\(\)\[\]\+\*\/=\<\>\!\,\;])|(?:[a-z0-9]+)', re.IGNORECASE)
     lidos = []
     if comentario:
         pos = texto.find('*/')
