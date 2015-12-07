@@ -12,6 +12,42 @@ import sys, json, pydot, re
 
 DEBUG = True
 
+#Ações semânticas
+pilha_semantica = []
+codigo = ""
+
+class TabelaSimbolos:
+    def __init__(self):
+        self.tabela_simbolos_geral = {}
+        self.tabela_simbolos_func = {}
+    def has_key(self, key):
+        return self.tabela_simbolos_func.has_key(key) or self.tabela_simbolos_geral.has_key(key)
+    def get(self, key):
+        if (self.tabela_simbolos_func.has_key(key)):
+            return self.tabela_simbolos_func[key]
+        else:
+            return self.tabela_simbolos_geral[key]
+    def put(self, key, val, general=False):
+        if general:
+            self.tabela_simbolos_geral[key] = val
+        else:
+            self.tabela_simbolos_func[key] = val
+    def new_func(self):
+        self.tabela_simbolos_func = {}
+
+tabela_simbolos = TabelaSimbolos()
+
+def declaracao_variavel(token, pilha):
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Declaracao de variavel"
+    print [p.valor for p in pilha]
+
+    del pilha[:]
+    return "Teste\n"
+
+acoes_semanticas = {
+    '27': declaracao_variavel
+}
 #Analisador Léxico
 class Atomo:
     def __init__(self, tipo, valor, n_linha, n_coluna):
@@ -43,7 +79,6 @@ def LeAtomos(texto, n_linha, comentario):
     lidos = []
     if comentario:
         pos = texto.find('*/')
-        
         if pos == -1:
             return ([], True)
         else:
@@ -80,7 +115,6 @@ def LeAtomos(texto, n_linha, comentario):
             pos += len(token)
         pos += len(cadeia)
     return (atomos, comentario)
-
 
 class Automato:
     def __init__(self, estados, estado_inicial, estados_finais, alfabeto, transicoes):
@@ -126,6 +160,8 @@ def main():
             print "Automato '" + maq + "' lido:"
         automatos[maq] = Automato(dados["maquinas"][maq]["estados"], dados["maquinas"][maq]["estado_inicial"]\
             , dados["maquinas"][maq]["estados_finais"], dados["maquinas"][maq]["alfabeto"], dados["maquinas"][maq]["transicoes"])
+    #Adiciona ações semânticas 
+
     linhas =  open(sys.argv[2],"r").readlines()
     atomos = []
     comentario = False
@@ -148,8 +184,7 @@ def main():
     cadeia_lida = []
     for atomo in atomos:
         cadeia_lida.append(atomo)
-        ret = le_atomo(atomo.tipo, automatos, estado_atual, automato_atual, pilha)
-        
+        ret = le_atomo(atomo, automatos, estado_atual, automato_atual, pilha)
         #Rejeita cadeia
         if len(ret) == 0:
             rejeitar = True
@@ -191,16 +226,26 @@ def main():
             break
 
     if (not rejeitar) and len(pilha) == 0 and automatos[automato_atual].estados_finais.count(estado_atual) > 0:
-        print "Programa aceito!" 
+        print "Programa aceito!\n" 
+        print codigo
+        print "#"
     else:
         print "Erro de Sintaxe na linha " + str(cadeia_lida[-1].n_linha+1) + ". Token '" + cadeia_lida[-1].valor + "' não esperado: "
         print linhas[cadeia_lida[-1].n_linha] ,
 
-def le_atomo(simbolo, automatos, estado_atual, automato_atual, pilha):
+def chama_acao_semantica(atomo, estado_atual):
+    global acoes_semanticas, pilha_semantica, codigo
+    pilha_semantica.append(atomo)
+    if acoes_semanticas.has_key(estado_atual):
+        codigo += acoes_semanticas[estado_atual](atomo, pilha_semantica)
+
+def le_atomo(atomo, automatos, estado_atual, automato_atual, pilha):
+    simbolo = atomo.tipo
     # Transição normal
     if automatos[automato_atual].transicoes.has_key((estado_atual, simbolo)):
         if DEBUG:
             print automato_atual + ": Saindo do estado " + estado_atual + " e consumindo " + simbolo + " para ir para o estado " + automatos[automato_atual].transicoes[(estado_atual, simbolo)][0]
+        chama_acao_semantica(atomo, automatos[automato_atual].transicoes[(estado_atual, simbolo)][0])
         return (automatos[automato_atual].transicoes[(estado_atual, simbolo)][0], automato_atual)
     
     # Empilha ou desempilha
@@ -211,7 +256,7 @@ def le_atomo(simbolo, automatos, estado_atual, automato_atual, pilha):
             if DEBUG:
                 print automato_atual + ": Saindo do estado " + estado_atual + u" e indo para a submáquina " + transicao[1] + " (estado " + automatos[transicao[1]].estado_inicial + ") empilhando estado " + transicao[0]
             pilha.append((transicao[0], automato_atual))
-            return le_atomo(simbolo, automatos, automatos[transicao[1]].estado_inicial, transicao[1], pilha)
+            return le_atomo(atomo, automatos, automatos[transicao[1]].estado_inicial, transicao[1], pilha)
         # Desempilha
         elif len(transicao) == 0:
             # Nada para desempilhar, rejeita
@@ -223,7 +268,7 @@ def le_atomo(simbolo, automatos, estado_atual, automato_atual, pilha):
                 if DEBUG:
                     print automato_atual + ": Saindo do estado " + estado_atual + " e desempilhando estado " + pilha[-1][0] + u", indo para a submáquina " + pilha[-1][1]
                 desempilha = pilha.pop()
-                return le_atomo(simbolo, automatos, desempilha[0], desempilha[1], pilha)
+                return le_atomo(atomo, automatos, desempilha[0], desempilha[1], pilha)
 
     # Rejeita ou desempilha
     else:
@@ -233,7 +278,7 @@ def le_atomo(simbolo, automatos, estado_atual, automato_atual, pilha):
                 if DEBUG:
                     print automato_atual + ": Saindo do estado " + estado_atual + " e desempilhando estado " + pilha[-1][0] + u", indo para a submáquina " + pilha[-1][1]
                 desempilha = pilha.pop()
-                return le_atomo(simbolo, automatos, desempilha[0], desempilha[1], pilha)
+                return le_atomo(atomo, automatos, desempilha[0], desempilha[1], pilha)
         if DEBUG:
             print automato_atual + ": No estado " + estado_atual + (u" não há transições em vazio e nem transições consumindo ") + simbolo 
         #Tansição vazia
@@ -242,7 +287,7 @@ def le_atomo(simbolo, automatos, estado_atual, automato_atual, pilha):
         if len(transicao) == 1:
             if DEBUG:
                 print automato_atual + ": Saindo do estado " + estado_atual + " e consumindo vazio para ir para o estado " + automatos[automato_atual].transicoes[(estado_atual, "")][0]
-            return le_atomo(simbolo, automatos, automatos[automato_atual].transicoes[(estado_atual, "")][0], automato_atual, pilha)
+            return le_atomo(atomo, automatos, automatos[automato_atual].transicoes[(estado_atual, "")][0], automato_atual, pilha)
     return ()
     
 main()

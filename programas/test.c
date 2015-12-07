@@ -1,1 +1,4 @@
-/*Test of code generation */
+/*Test of code generation 
+*/
+int a,b;
+int c[10], d;
