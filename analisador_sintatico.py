@@ -15,38 +15,55 @@ DEBUG = True
 #Ações semânticas
 pilha_semantica = []
 codigo = ""
+simbolo_atual = 0
 
 class TabelaSimbolos:
     def __init__(self):
         self.tabela_simbolos_geral = {}
-        self.tabela_simbolos_func = {}
+        self.tabela_simbolos_func = []
     def has_key(self, key):
-        return self.tabela_simbolos_func.has_key(key) or self.tabela_simbolos_geral.has_key(key)
+        return reduce(lambda r, x: r or x.has_key(key), [tabela_simbolos_geral] + self.tabela_simbolos_func, False) 
     def get(self, key):
-        if (self.tabela_simbolos_func.has_key(key)):
-            return self.tabela_simbolos_func[key]
-        else:
-            return self.tabela_simbolos_geral[key]
+        return reduce(lambda r, x: r if not x.has_key(key) else x[key], [tabela_simbolos_geral] + self.tabela_simbolos_func, False) 
     def put(self, key, val, general=False):
         if general:
             self.tabela_simbolos_geral[key] = val
         else:
-            self.tabela_simbolos_func[key] = val
+            self.tabela_simbolos_func[-1][key] = val
+        return val
     def new_func(self):
-        self.tabela_simbolos_func = {}
+        self.tabela_simbolos_func = []
+    def enter_context(self):
+        self.tabela_simbolos_func.push({})
+    def leave_context(self):
+        if len(self.tabela_simbolos_func) > 0:
+            self.tabela_simbolos_func.pop()
+    def print_tabela(self):
+        pass
 
+class Simbolo:
+    def __init__(self, tipo):
+        global simbolo_atual
+        print 'novo simbolo'
+        self.tipo = tipo
+        self.label = 'lbl' + str(simbolo_atual)
+        simbolo_atual += 1
 tabela_simbolos = TabelaSimbolos()
 
 def declaracao_variavel(token, pilha):
+    global tabela_simbolos
+    ret = ''
     if DEBUG:
         print "[ACAO SEMANTICA] -> Declaracao de variavel"
-    print [p.valor for p in pilha]
-
+    c = reduce(lambda c, x: c if x.valor in [',', ';'] else c + tabela_simbolos.put(x.valor, Simbolo(pilha[0]), True).label + '  K /0000\n', pilha[1:], '')
+    
+    print [i.valor for i in pilha]
+    print c
     del pilha[:]
-    return "Teste\n"
+    return c
 
 acoes_semanticas = {
-    '27': declaracao_variavel
+    '38': declaracao_variavel
 }
 #Analisador Léxico
 class Atomo:
@@ -233,11 +250,12 @@ def main():
         print "Erro de Sintaxe na linha " + str(cadeia_lida[-1].n_linha+1) + ". Token '" + cadeia_lida[-1].valor + "' não esperado: "
         print linhas[cadeia_lida[-1].n_linha] ,
 
-def chama_acao_semantica(atomo, estado_atual):
+def chama_acao_semantica(atomo, estado_atual, vazia=False):
     global acoes_semanticas, pilha_semantica, codigo
-    pilha_semantica.append(atomo)
+    if not vazia:
+        pilha_semantica.append(atomo)
     if acoes_semanticas.has_key(estado_atual):
-        codigo += acoes_semanticas[estado_atual](atomo, pilha_semantica)
+        codigo += acoes_semanticas[estado_atual](pilha_semantica[-1], pilha_semantica)
 
 def le_atomo(atomo, automatos, estado_atual, automato_atual, pilha):
     simbolo = atomo.tipo
@@ -281,12 +299,13 @@ def le_atomo(atomo, automatos, estado_atual, automato_atual, pilha):
                 return le_atomo(atomo, automatos, desempilha[0], desempilha[1], pilha)
         if DEBUG:
             print automato_atual + ": No estado " + estado_atual + (u" não há transições em vazio e nem transições consumindo ") + simbolo 
-        #Tansição vazia
+    #Tansição vazia
     if automatos[automato_atual].transicoes.has_key((estado_atual, "")):
         transicao = automatos[automato_atual].transicoes[(estado_atual, "")]
         if len(transicao) == 1:
             if DEBUG:
                 print automato_atual + ": Saindo do estado " + estado_atual + " e consumindo vazio para ir para o estado " + automatos[automato_atual].transicoes[(estado_atual, "")][0]
+            chama_acao_semantica(atomo, automatos[automato_atual].transicoes[(estado_atual, "")][0], True)
             return le_atomo(atomo, automatos, automatos[automato_atual].transicoes[(estado_atual, "")][0], automato_atual, pilha)
     return ()
     
