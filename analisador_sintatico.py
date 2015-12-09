@@ -14,56 +14,153 @@ DEBUG = True
 
 #Ações semânticas
 pilha_semantica = []
-codigo = ""
+area_dados = ""
+area_code = ""
 simbolo_atual = 0
+data_area = ''
 
 class TabelaSimbolos:
     def __init__(self):
         self.tabela_simbolos_geral = {}
         self.tabela_simbolos_func = []
+        self.current_function = None
     def has_key(self, key):
         return reduce(lambda r, x: r or x.has_key(key), [tabela_simbolos_geral] + self.tabela_simbolos_func, False) 
     def get(self, key):
         return reduce(lambda r, x: r if not x.has_key(key) else x[key], [tabela_simbolos_geral] + self.tabela_simbolos_func, False) 
     def put(self, key, val, general=False):
         if general:
+            if self.tabela_simbolos_geral.has_key(key):
+                raise TypeError("Símbolo " + key + " definido múltiplas vezes")
             self.tabela_simbolos_geral[key] = val
         else:
+            if self.tabela_simbolos_func[-1].has_key(key):
+                raise TypeError("Símbolo " + key + " definido múltiplas vezes")
             self.tabela_simbolos_func[-1][key] = val
         return val
     def new_func(self):
         self.tabela_simbolos_func = []
-    def enter_context(self):
-        self.tabela_simbolos_func.push({})
-    def leave_context(self):
+    def enter_context(self, func=None):
+        self.tabela_simbolos_func.append({})
+        if not func == None:
+            self.current_function = func
+    def leave_context(self, func=None):
         if len(self.tabela_simbolos_func) > 0:
             self.tabela_simbolos_func.pop()
+        if not func == None:
+            self.current_function = None
     def print_tabela(self):
-        pass
+        print "Tabela de Simbolos\n\n"
+        print "     Global"
+        for k in self.tabela_simbolos_geral:
+            g = self.tabela_simbolos_geral[k]
+            print  "    '" + g.nome + "' | " + g.tipo + "|" + g.label
 
 class Simbolo:
-    def __init__(self, tipo):
+    def __init__(self, tipo, nome=None, retorno=None, args=[]):
         global simbolo_atual
-        print 'novo simbolo'
+        if tipo not in ('int', 'int[]', 'function') and retorno not in ('void', 'int', None):
+            raise TypeError("Tipo '" + tipo + "' não implementado")
         self.tipo = tipo
         self.label = 'lbl' + str(simbolo_atual)
+        self.nome = nome
+        if tipo == 'function':
+            self.retorno = retorno
+            self.args = args
+            
         simbolo_atual += 1
+
 tabela_simbolos = TabelaSimbolos()
 
-def declaracao_variavel(token, pilha):
+def declaracao_variavel(token, pilha, var_global=False):
     global tabela_simbolos
-    ret = ''
     if DEBUG:
-        print "[ACAO SEMANTICA] -> Declaracao de variavel"
-    c = reduce(lambda c, x: c if x.valor in [',', ';'] else c + tabela_simbolos.put(x.valor, Simbolo(pilha[0]), True).label + '  K /0000\n', pilha[1:], '')
+        print "[ACAO SEMANTICA] -> Declaracao de variável"
+    codigo = ''
+    for k,v in enumerate(pilha[1:]):
+        if v.valor in [',', ';', '[', ']','='] or v.valor.isdigit():
+            continue
+        if pilha[1:][k+1].valor == '[':
+            codigo += tabela_simbolos.put(v.valor, Simbolo(pilha[0].valor + '[]', v.valor), var_global).label + '   $   =' + pilha[1:][k+2].valor + '; vetor ' + v.valor + '\n'
+        else:
+            codigo += tabela_simbolos.put(v.valor, Simbolo(pilha[0].valor, v.valor), var_global).label + '   K   =' + (pilha[1:][k+2].valor if pilha[1:][k+1].valor == '=' else '0') + '; inteiro ' + v.valor + '\n'
+    print [i.valor for i in pilha]
+    del pilha[:]
+    return codigo
+
+
+def declaracao_funcao(token, pilha):
+    global tabela_simbolos
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Declaracao de função"
+    codigo = ''
+    args = []
+    func = Simbolo('function', pilha[1].valor, pilha[0])
+    tabela_simbolos.enter_context(func)
+    for k,v in enumerate(pilha[3:]):
+        if v.valor in [',', ';', '[', ']','int', 'char', 'float', '(', ')'] or v.valor.isdigit():
+            continue
+        if pilha[3:][k+1].valor == '[':
+            args.append(Simbolo(pilha[3:][k-1].valor + '[]', v.valor))
+            codigo += tabela_simbolos.put(v.valor, args[-1] , False).label + '   K   =0; vetor ' + v.valor + '\n'
+        else:
+            args.append(Simbolo(pilha[3:][k-1].valor, v.valor))
+            codigo += tabela_simbolos.put(v.valor, args[-1], False).label + '   K   =0; inteiro ' + v.valor + '\n'
+
+
+    func.args = args
     
     print [i.valor for i in pilha]
-    print c
+    del pilha[:] 
+    return codigo
+
+def limpa_pilha(token, pilha):
     del pilha[:]
-    return c
+    return ''
+
+def fim_contexto(token, pilha, funcao=False):
+    global tabela_simbolos
+    codigo = ''
+    if funcao:
+        codigo += '   RS      ' +  tabela_simbolos.current_function.label + '\n'
+    tabela_simbolos.leave_context(funcao)
+    del pilha[:]
+    return codigo
+
+def inicio_contexto(token, pilha):
+    pass
+
+# Código para iniciar função
+def inicio_funcao(token, pilha):
+    global tabela_simbolos
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Início de função"
+    codigo = tabela_simbolos.current_function.label + '   K   =0   ; funcao ' + tabela_simbolos.current_function.nome + '\n'
+    for arg in tabela_simbolos.current_function.args:
+        codigo += '   SC    POP; poping ' + arg.nome + '\n'
+        codigo += '   MM   ' + arg.label + '\n' 
+    del pilha[:] 
+    print codigo
+    return codigo
+
 
 acoes_semanticas = {
-    '38': declaracao_variavel
+    '38': {
+        'func_data': lambda token, pilha: declaracao_variavel(token, pilha, True)
+    },
+    '60': {
+        'func_data': declaracao_variavel
+    },
+    '13': { 
+        'func_data': declaracao_funcao,
+        'func_code': inicio_funcao
+    },
+    '15': {
+        'func_code': limpa_pilha
+    },
+    '17': {
+        'func_code': lambda token, pilha: fim_contexto(token, pilha, True)
+    }
 }
 #Analisador Léxico
 class Atomo:
@@ -199,6 +296,7 @@ def main():
     # Variável para rejeitar
     rejeitar = False
     cadeia_lida = []
+    #try:
     for atomo in atomos:
         cadeia_lida.append(atomo)
         ret = le_atomo(atomo, automatos, estado_atual, automato_atual, pilha)
@@ -244,18 +342,26 @@ def main():
 
     if (not rejeitar) and len(pilha) == 0 and automatos[automato_atual].estados_finais.count(estado_atual) > 0:
         print "Programa aceito!\n" 
-        print codigo
+        print area_code + area_dados
         print "#"
     else:
         print "Erro de Sintaxe na linha " + str(cadeia_lida[-1].n_linha+1) + ". Token '" + cadeia_lida[-1].valor + "' não esperado: "
         print linhas[cadeia_lida[-1].n_linha] ,
+    #except Exception as e:
+    #    raise e
+    #    print "Erro na linha " + str(cadeia_lida[-1].n_linha+1) + ". " + e.args[0] + ":"
+    #    print linhas[cadeia_lida[-1].n_linha] ,
+
 
 def chama_acao_semantica(atomo, estado_atual, vazia=False):
-    global acoes_semanticas, pilha_semantica, codigo
+    global acoes_semanticas, pilha_semantica, area_dados, area_code
     if not vazia:
         pilha_semantica.append(atomo)
     if acoes_semanticas.has_key(estado_atual):
-        codigo += acoes_semanticas[estado_atual](pilha_semantica[-1], pilha_semantica)
+        if acoes_semanticas[estado_atual].has_key('func_data'):
+            area_dados += acoes_semanticas[estado_atual]['func_data'](pilha_semantica[-1] if len(pilha_semantica) > 0 else None, pilha_semantica)
+        if acoes_semanticas[estado_atual].has_key('func_code'):
+            area_code += acoes_semanticas[estado_atual]['func_code'](pilha_semantica[-1] if len(pilha_semantica) > 0 else None, pilha_semantica)
 
 def le_atomo(atomo, automatos, estado_atual, automato_atual, pilha):
     simbolo = atomo.tipo
