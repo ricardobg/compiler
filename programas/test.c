@@ -1,10 +1,10 @@
 /*Test of code generation 
 */
-int a,b=100;
+int a,b;
 int c,d[100],e[50];
 
-void main(int b, int d, int c) {
-
+void main() {
+	b = 10;
+	a = 5;
+	a = b + a * 2;
 }
-
-int h[50];
