@@ -152,20 +152,23 @@ def inicio_funcao(token, pilha):
     print codigo
     return codigo
 
-
-def le_matriz(itens):
-    codigo += '     LV     ' + itens[0].valor + '\n ; carrega endereco'
-    codigo += '     SC     PUSH\n'
-    #Calcula valor
+#Ler ou escrever em vetor
+def acessa_vetor(atomo_vetor, eh_leitura):
+    codigo = ''
+    #posição de acesso está no topo da pilha
+    codigo += '     SC     POP\n'
+    codigo += '     *      DOIS\n'
+    codigo += '     +      ' + ('POP_LD' if eh_leitura else 'PUSH_MM') + '\n'
     codigo += '     MM     TEMP\n'
-    codigo += '     SC     POP\n'
-    codigo += '     SC     POP\n'
-    codigo += '    '   
-    #primeiro: identificador
-    pass
-
-def escreve_matriz(itens):
-    pass
+    codigo += '     LV     ' + tabela_simbolos.get(atomo_vetor.valor).label + ' ; carrega endereco de ' +  tabela_simbolos.get(atomo_vetor.valor).nome + '\n'
+    codigo += '     +       TEMP\n'
+    simb = Simbolo('int').label
+    codigo += '     MM     ' + simb + ' ; escreve instrucao\n'
+    if not eh_leitura:
+        #Valor para gravar está no topo da pilha também
+        codigo += '     SC    POP\n'
+    codigo += simb + '   K      =0\n'
+    return codigo
 
 #
 #Expression
@@ -207,71 +210,12 @@ def leave_expression(token, pilha):
         return ret
     return ''
 
-
-def trata_piha(pilha):
+#Coloca resultado no topo da pilha
+def create_code_from_npr(stack, left_side=False):
     global tabela_simbolos, area_constantes
-    out_expression = []
-    operators = []
-    equal = []
-    for k,i in enumerate(pilha):
-        #Função
-        if i.tipo == 'NAME' and tabela_simbolos.get(i.valor).tipo == 'function':
-            operators.append(i)
-        elif i.tipo in ['NAME', 'NUMBER']:
-            out_expression.append(i)
-        elif i.valor == '=':
-            equal = out_expression[:]
-            del out_expression[:]
-        else:
-            if i.valor == '(':
-                operators.append(i)   
-            elif i.valor == ')':
-                print 'FECHANDO'
-                print [i.valor for i in operators]
-                topo = operators.pop()
-                while True: 
-                    if topo.valor == '(':
-                        break
-                    out_expression.append(topo)
-                    topo = operators.pop()
-                if len(operators) > 0: 
-                    topo = operators[-1]
-                    if topo.tipo == 'NAME' and tabela_simbolos.get(topo.valor).tipo == 'function':
-                        out_expression.append(operators.pop())
-            else:   
-                if len(operators) > 0: 
-                    while len(operators) > 0:
-                        topo = operators[-1]
-                        #Se lido tiver menos precedencia ou igual ao topo, desempilha
-                        #Iguais, desempilha
-                        if topo.valor == '(' or topo.valor == ')':
-                            break
-                        if topo.valor == i.valor and topo.valor != '!': 
-                            out_expression.append(operators.pop())
-                        elif topo.valor in ['[', ']']:
-                            out_expression.append(operators.pop())
-                        elif topo.valor in ['*', '/'] and i.valor not in ['[', ']']:
-                            out_expression.append(operators.pop())
-                        elif topo.valor in ['+', '-'] and i.valor not in ['[', ']', '*', '/']:
-                            out_expression.append(operators.pop())
-                        elif topo.valor in ['<', '>', '<=', '>='] and i.valor not in ['[', ']', '*', '/', '+', '-']:
-                            out_expression.append(operators.pop())
-                        elif topo.valor in ['==', '!='] and i.valor not in ['[', ']', '*', '/', '+', '-','<', '>', '<=', '>=']:
-                            out_expression.append(operators.pop())
-                        elif topo.valor in ['&&'] and i.valor not in ['[', ']', '*', '/', '+', '-','<', '>', '<=', '>=', '==', '!=']:
-                            out_expression.append(operators.pop())
-                        elif topo.valor in ['||'] and i.valor not in ['[', ']', '*', '/', '+', '-','<', '>', '<=', '>=', '==', '!=', '&&']:
-                            out_expression.append(operators.pop())
-                        else:
-                            break
-                operators.append(i)
-    operators.reverse()
-    out_expression = out_expression + operators
-    print "Finished pilha:"
-    print [i.valor for i in out_expression]
-    #Tratar pilha
     codigo = ''
-    for k,i in enumerate(out_expression):
+    vetor_access = []
+    for k,i in enumerate(stack):
         #Constante numérica
         if i.tipo == "NUMBER":
             if not tabela_simbolos.has_key(int(i.valor)):
@@ -282,14 +226,37 @@ def trata_piha(pilha):
             codigo += '     SC     PUSH\n'
         elif i.tipo == 'NAME':
             #Vetor
-            if len(out_expression) > k and out_expression[k] == '[':            
-                pass
+            if len(stack) > k+1 and stack[k+1].valor  == '[': 
+                vetor_access.append(i)
             #Variável normal
             else:
                 codigo += '     LD     ' + tabela_simbolos.get(i.valor).label + " ; carrega " + i.valor + "\n" 
+                codigo += '     SC     PUSH\n'
+        #vetor
+        elif i.valor == ']':
+            codigo += acessa_vetor(vetor_access.pop(), not left_side)
+            if not left_side:
+                codigo += '     SC     PUSH\n'
+        #operadores unários
+        elif i.is_unary:
+            #tira do topo da pilha
+            codigo += '     SC     POP\n'
+            if i.valor == '-':
+                codigo += '     MM      TEMP\n'
+                codigo += '     LV      =0\n'
+                codigo += '     -       TEMP\n'
+            elif i.valor == '!': 
+                verd_simb = Simbolo('int').label
+                fim_simb = Simbolo('int').label
+                codigo += '     JZ   ' + verd_simb + ' ; pula para true\n'
+                codigo += '          LV =0 ; eh 0 \n' 
+                codigo += '     JP     ' + fim_simb + ' \n'
+                codigo += verd_simb + '    LV =1 ; eh 1\n'
+                codigo += fim_simb #sem quebra de linha: proxima linha começa deste label 
+            #Coloca resultado no topo da pilha
             codigo += '     SC     PUSH\n'
-        #operador 
-        elif i.valor not in ['[',']']:
+        #operadores binários 
+        elif i.valor != '[':
             #tira do topo da pilha
             codigo += '     SC     POP\n'
             #guarda topo da pilha em temp
@@ -301,7 +268,13 @@ def trata_piha(pilha):
                 codigo += '     ' + i.valor + '     TEMP\n'
             else:
                 if i.valor == '%':
+                    #guarda dividendo
+                    codigo += '     MM    TEMP2\n'
                     codigo += '     /     TEMP\n'   
+                    codigo += '     *     TEMP\n'
+                    codigo += '     MM    TEMP\n'
+                    codigo += '     LD    TEMP2\n'
+                    codigo += '     -     TEMP\n'
                 elif i.valor == '>':
                     codigo += '     -     TEMP\n'
                     false_simb = Simbolo('int').label
@@ -381,10 +354,84 @@ def trata_piha(pilha):
                     codigo += '     JP     ' + fim_simb + ' \n'
                     codigo += false_simb + '    LV =0 ; eh false \n'
                     codigo += fim_simb #sem quebra de linha: proxima linha começa deste label 
-
-
             #Coloca resultado no topo da pilha
             codigo += '     SC     PUSH\n'
+    return codigo
+
+
+ 
+
+def trata_piha(pilha):
+    global tabela_simbolos, area_constantes
+    out_expression = []
+    operators = []
+    equal = []
+    for k,i in enumerate(pilha):
+        #Função
+        if i.tipo == 'NAME' and tabela_simbolos.get(i.valor).tipo == 'function':
+            operators.append(i)
+        elif i.tipo in ['NAME', 'NUMBER']:
+            out_expression.append(i)
+        elif i.valor == '=':
+            equal = out_expression[:] + operators[:]
+            del out_expression[:]
+            del operators[:]
+        elif i.valor == '[':
+            out_expression.append(i)
+        else:
+            if i.valor == '(':
+                operators.append(i)   
+            elif i.valor == ')':
+                print 'FECHANDO'
+                print [i.valor for i in operators]
+                topo = operators.pop()
+                while True: 
+                    if topo.valor == '(':
+                        break
+                    out_expression.append(topo)
+                    topo = operators.pop()
+                if len(operators) > 0: 
+                    topo = operators[-1]
+                    if topo.tipo == 'NAME' and tabela_simbolos.get(topo.valor).tipo == 'function':
+                        out_expression.append(operators.pop())
+            else:   
+                if len(operators) > 0: 
+                    while len(operators) > 0:
+                        topo = operators[-1]
+                        #Se lido tiver menos precedencia ou igual ao topo, desempilha
+                        #Iguais, desempilha
+                        if topo.valor == '(' or topo.valor == ')':
+                            break
+                        if topo.valor == i.valor and not topo.is_unary:
+                            out_expression.append(operators.pop())
+                        elif topo.valor in ['[', ']']:
+                            out_expression.append(operators.pop())
+                        elif topo.is_unary and i.valor not in ['[', ']']:
+                            out_expression.append(topo)
+                        elif topo.valor in ['*', '/'] and i.valor not in ['[', ']'] and not i.is_unary:
+                            out_expression.append(operators.pop())
+                        elif topo.valor in ['+', '-'] and i.valor not in ['[', ']', '*', '/'] and not i.is_unary:
+                            out_expression.append(operators.pop())
+                        elif topo.valor in ['<', '>', '<=', '>='] and i.valor not in ['[', ']', '*', '/', '+', '-'] and not i.is_unary:
+                            out_expression.append(operators.pop())
+                        elif topo.valor in ['==', '!='] and i.valor not in ['[', ']', '*', '/', '+', '-','<', '>', '<=', '>='] and not i.is_unary:
+                            out_expression.append(operators.pop())
+                        elif topo.valor in ['&&'] and i.valor not in ['[', ']', '*', '/', '+', '-','<', '>', '<=', '>=', '==', '!='] and not i.is_unary:
+                            out_expression.append(operators.pop())
+                        elif topo.valor in ['||'] and i.valor not in ['[', ']', '*', '/', '+', '-','<', '>', '<=', '>=', '==', '!=', '&&'] and not i.is_unary:
+                            out_expression.append(operators.pop())
+                        else:
+                            break
+                operators.append(i)
+    operators.reverse()
+    out_expression = out_expression + operators
+    print "Finished pilha:"
+    print [i.valor for i in out_expression]
+    print "Equal pilha:"
+    print [i.valor for i in equal]
+    #Tratar pilha
+    codigo = create_code_from_npr(out_expression)
+   
     #Pop para colocar resultado no acumulador
     if len(out_expression) > 0:
         codigo += '     SC     POP\n'
@@ -393,7 +440,9 @@ def trata_piha(pilha):
         if len(equal) == 1: 
             codigo += '     MM      ' + tabela_simbolos.get(equal[0].valor).label + ' ; salva no ' + equal[0].valor + '\n'
         else:
-            pass
+            #vetor
+            codigo += '     SC     PUSH\n'
+            codigo += create_code_from_npr(equal, True)
     return codigo
 
 def decr_ou_incr_ou_ref(token, pilha):
@@ -456,11 +505,12 @@ acoes_semanticas = {
 }
 #Analisador Léxico
 class Atomo:
-    def __init__(self, tipo, valor, n_linha, n_coluna):
+    def __init__(self, tipo, valor, n_linha, n_coluna, is_unary=False):
         self.tipo = tipo
         self.valor = valor
         self.n_linha = n_linha
         self.n_coluna = n_coluna
+        self.is_unary = is_unary
 
 #Retorna uma tupla, primeiro item é uma lista com o texto já quebrado e a segunda é a lista com os tokens
 def find(texto, itens):
@@ -508,10 +558,14 @@ def LeAtomos(texto, n_linha, comentario):
         for token in tokens:
             if token in ['do', 'while', 'for', 'else', 'if', 'int', 'char', 'void', 'return', 'float' ]:
                 atomos.append(Atomo(token, token, n_linha, pos))
-            elif token in simbolos:
-                atomos.append(Atomo(token, token, n_linha, pos))
-            elif token in simbolos_compostos:
-                atomos.append(Atomo(token, token, n_linha, pos))
+            elif token in simbolos or token in simbolos_compostos:
+                if token in ['++', '--', '!']:
+                    atomos.append(Atomo(token, token, n_linha, pos, True)) 
+                elif token == '-'  and (len(atomos) == 0 or (atomos[i-1].tipo not in ['NUMBER', 'NAME'] and atomos[i-1].valor not in [')', ']'])):
+                    # - unário
+                    atomos.append(Atomo(token, token, n_linha, pos, True))
+                else:
+                    atomos.append(Atomo(token, token, n_linha, pos))
             elif token.isdigit() or (len(token.split('.')) == 2  and (len(token.split('.')[0]) == 0 or token.split('.')[0].isdigit()) and token.split('.')[1].isdigit()):
                 atomos.append(Atomo("NUMBER", token, n_linha, pos))
             elif name_exp.match(token) != None: 

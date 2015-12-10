@@ -1,10 +1,7 @@
 /*Test of code generation 
 */
-int a,b;
-int c,d[100],e[50];
-
+int a,b,c;
 void main() {
-	b = 10;
-	a = 5;
-	a = b + a * 2;
+	a = -10;
+	a = a + 12;
 }
