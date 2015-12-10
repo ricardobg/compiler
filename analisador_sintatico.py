@@ -154,6 +154,14 @@ def inicio_funcao(token, pilha):
 
 
 def le_matriz(itens):
+    codigo += '     LV     ' + itens[0].valor + '\n ; carrega endereco'
+    codigo += '     SC     PUSH\n'
+    #Calcula valor
+    codigo += '     MM     TEMP\n'
+    codigo += '     SC     POP\n'
+    codigo += '     SC     POP\n'
+    codigo += '    '   
+    #primeiro: identificador
     pass
 
 def escreve_matriz(itens):
