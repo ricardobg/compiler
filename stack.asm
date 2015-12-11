@@ -1,3 +1,4 @@
+UM 		  K =1    ; Constante 1 utilizada
 DOIS 	  K =2    ; Constante 2 utilizada na implementação da pilha
 STACK 	$ 	=200  ; Pilha em si
 STACK_PTR K DOIS ; Ponteiro para o topo da pilha 

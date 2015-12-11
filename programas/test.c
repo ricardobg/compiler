@@ -1,7 +1,11 @@
 /*Test of code generation 
 */
-int a,b,c;
+int a;
 void main() {
-	a = -10;
-	a = a + 12;
+	if (1 > 2) {
+		a = 1;
+	}
+	else {
+		a = 2;
+	}
 }

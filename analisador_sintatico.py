@@ -29,7 +29,7 @@ class TabelaSimbolos:
         return reduce(lambda r, x: r or x.has_key(key), [self.tabela_simbolos_geral] + self.tabela_simbolos_func, False) 
     def get(self, key):
         if not self.has_key(key):
-            raise ValueError("Symbol '" + key + "' not declared")
+            raise ValueError("Símbolo '" + key + "' não declarado")
         return reduce(lambda r, x: r if not x.has_key(key) else x[key], [self.tabela_simbolos_geral] + self.tabela_simbolos_func, False) 
     def put(self, key, val, general=False):
         if general:
@@ -84,7 +84,10 @@ def declaracao_variavel(token, pilha, var_global=False):
         if v.valor in [',', ';', '[', ']','='] or v.valor.isdigit():
             continue
         if pilha[1:][k+1].valor == '[':
-            codigo += tabela_simbolos.put(v.valor, Simbolo(pilha[0].valor + '[]', v.valor), var_global).label + '   $   =' + pilha[1:][k+2].valor + ' ; vetor ' + v.valor + '\n'
+            vetor = Simbolo(pilha[0].valor + '[]')
+            pont  = Simbolo(pilha[0].valor + '[]', v.valor)
+            codigo += tabela_simbolos.put(v.valor, pont, var_global).label + '   K   ' + vetor.label + ' ; ponteiro de vetor ' + v.valor + '\n'
+            codigo += vetor.label + '   $   =' + pilha[1:][k+2].valor + ' ; vetor ' + v.valor + '\n'
         else:
             codigo += tabela_simbolos.put(v.valor, Simbolo(pilha[0].valor, v.valor), var_global).label + '   K   =' + (pilha[1:][k+2].valor if pilha[1:][k+1].valor == '=' else '0') + ' ; inteiro ' + v.valor + '\n'
     print [i.valor for i in pilha]
@@ -106,7 +109,9 @@ def declaracao_funcao(token, pilha):
         if v.valor in [',', ';', '[', ']','int', 'char', 'float', '(', ')'] or v.valor.isdigit():
             continue
         if pilha[3:][k+1].valor == '[':
-            args.append(Simbolo(pilha[3:][k-1].valor + '[]', v.valor))
+            #Cria ponteiro para vetor
+            pont  = Simbolo(pilha[3:][k-1].valor + '[]', v.valor)
+            args.append(pont)
             codigo += tabela_simbolos.put(v.valor, args[-1] , False).label + '   K   =0 ; vetor ' + v.valor + '\n'
         else:
             args.append(Simbolo(pilha[3:][k-1].valor, v.valor))
@@ -153,20 +158,28 @@ def inicio_funcao(token, pilha):
     return codigo
 
 #Ler ou escrever em vetor
-def acessa_vetor(atomo_vetor, eh_leitura):
+def acessa_vetor(atomo_vetor, eh_leitura, stack):
     codigo = ''
     #posição de acesso está no topo da pilha
     codigo += '     SC     POP\n'
     codigo += '     *      DOIS\n'
     codigo += '     +      ' + ('POP_LD' if eh_leitura else 'PUSH_MM') + '\n'
     codigo += '     MM     TEMP\n'
-    codigo += '     LV     ' + tabela_simbolos.get(atomo_vetor.valor).label + ' ; carrega endereco de ' +  tabela_simbolos.get(atomo_vetor.valor).nome + '\n'
+    codigo += '     LD     ' + tabela_simbolos.get(atomo_vetor.valor).label + ' ; carrega endereco de ' +  tabela_simbolos.get(atomo_vetor.valor).nome + '\n'
     codigo += '     +       TEMP\n'
     simb = Simbolo('int').label
     codigo += '     MM     ' + simb + ' ; escreve instrucao\n'
     if not eh_leitura:
-        #Valor para gravar está no topo da pilha também
-        codigo += '     SC    POP\n'
+        if stack[-1].valor in ['++', '--']:
+            simb2 = Simbolo('int').label
+            codigo += '     -      PUSH_MM\n'
+            codigo += '     +      POP_LD\n'
+            codigo += '     MM     ' + simb2 + ' ; escreve instrucao\n'
+            codigo += simb2 + '   K      =0\n'
+            codigo += '     ' + ('+' if stack[-1].valor == '++' else '-') + '       UM\n';
+        else:
+            #Valor para gravar está no topo da pilha também
+            codigo += '     SC    POP\n'
     codigo += simb + '   K      =0\n'
     return codigo
 
@@ -174,11 +187,12 @@ def acessa_vetor(atomo_vetor, eh_leitura):
 #Expression
 #
 pilha_expression = []
+pilha_list_expression = []
 
 
 def enter_expression(token, pilha):
-    global pilha_expression
-    if len(pilha_expression) == 0:
+    global pilha_expression, pilha_list_expression
+    if len(pilha_expression) == 0 and len(pilha_list_expression) == 0:
         if DEBUG:
             print "[ACAO SEMANTICA] -> Chamou Expression"
         pilha_expression.append(pilha[:])
@@ -186,7 +200,9 @@ def enter_expression(token, pilha):
     return ''
 
 def new_expression(token, pilha): 
-    global pilha_expression
+    global pilha_expression, pilha_list_expression
+    if len(pilha_list_expression) != 0:
+        return ''
     if DEBUG:
         print "[ACAO SEMANTICA] -> Chamou Expression dentro de Expression"
     print [i.valor for i in pilha]
@@ -194,15 +210,35 @@ def new_expression(token, pilha):
     del pilha[:]
     return ''
 
+def new_list_expression(token, pilha): 
+    global pilha_list_expression
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Chamou List Expression dentro de Expression"
+    print [i.valor for i in pilha]
+    pilha_list_expression.append(pilha[:])
+    del pilha[:]
+    return ''
+
+def end_list_expression(token, pilha):
+    global pilha_list_expression
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Fim de List Expression dentro de Expression"
+    pilha[:] = pilha_list_expression.pop() + pilha[:]
+    return ''
 
 def leave_expression(token, pilha):
-    global pilha_expression
+    global pilha_expression, pilha_list_expression
+    if len(pilha_list_expression) != 0:
+        return ''
     if DEBUG:
         print "[ACAO SEMANTICA] -> Fim de Expression"
     codigo = ''
+    
     if len(pilha_expression) > 1:
         pilha[:] = pilha_expression.pop() + pilha[:]        
     else:
+        print "[ACAO SEMANTICA] -> Fim Real de Expression"
+        print token.valor
         print [i.valor for i in pilha]
         ret = trata_piha(pilha)
         del pilha[:]
@@ -230,13 +266,18 @@ def create_code_from_npr(stack, left_side=False):
                 vetor_access.append(i)
             #Variável normal
             else:
-                codigo += '     LD     ' + tabela_simbolos.get(i.valor).label + " ; carrega " + i.valor + "\n" 
+                if tabela_simbolos.get(i.valor).tipo == 'function':
+                    codigo += '     SC     ' +  tabela_simbolos.get(i.valor).label + ' ; chama ' + i.valor + '\n'
+                else:
+                    codigo += '     LD     ' + tabela_simbolos.get(i.valor).label + " ; carrega " + i.valor + "\n" 
                 codigo += '     SC     PUSH\n'
         #vetor
         elif i.valor == ']':
-            codigo += acessa_vetor(vetor_access.pop(), not left_side)
+            codigo += acessa_vetor(vetor_access.pop(), not left_side, stack)
             if not left_side:
                 codigo += '     SC     PUSH\n'
+            else:
+                break
         #operadores unários
         elif i.is_unary:
             #tira do topo da pilha
@@ -372,13 +413,17 @@ def trata_piha(pilha):
             operators.append(i)
         elif i.tipo in ['NAME', 'NUMBER']:
             out_expression.append(i)
-        elif i.valor == '=':
+        elif i.valor == '=': 
             equal = out_expression[:] + operators[:]
+            del out_expression[:]
+            del operators[:]
+        elif i.valor in ['++', '--']:
+            equal = out_expression[:] + operators[:] + [i]
             del out_expression[:]
             del operators[:]
         elif i.valor == '[':
             out_expression.append(i)
-        else:
+        elif i.valor != ',':
             if i.valor == '(':
                 operators.append(i)   
             elif i.valor == ')':
@@ -439,15 +484,66 @@ def trata_piha(pilha):
     if len(equal) > 0:
         if len(equal) == 1: 
             codigo += '     MM      ' + tabela_simbolos.get(equal[0].valor).label + ' ; salva no ' + equal[0].valor + '\n'
+        elif len(equal) == 2:
+            codigo += '     ' + ('+' if equal[1].valor == '++' else '-') + '       UM\n';
+            codigo += '     MM      ' + tabela_simbolos.get(equal[0].valor).label + ' ; salva no ' + equal[0].valor + '\n'
         else:
             #vetor
             codigo += '     SC     PUSH\n'
             codigo += create_code_from_npr(equal, True)
     return codigo
 
-def decr_ou_incr_ou_ref(token, pilha):
-    #if DEBUG:
-    #    print "[ACAO SEMANTICA] -> Referência a variável com incremento ou decremento"
+#
+# Comandos
+#
+class Comando:
+    def __init__(self, tipo, before_condition, end):
+        self.tipo = tipo
+        self.before_condition = before_condition
+        self.end = end
+
+pilha_comandos = []
+
+
+def init_command(token, pilha):
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Início de comando"
+    print [i.valor for i in pilha]
+    if pilha[0].valor == 'else':
+        simb = Simbolo('int').label
+        pilha_comandos.append(Comando(pilha[0].valor, simb, pilha_comandos[-1]))
+        del pilha[:]
+    else:
+        simb = Simbolo('int').label
+        pilha_comandos.append(Comando(pilha[0].valor, simb, Simbolo('int').label))
+        del pilha[:]
+        return simb + ' '
+
+def middle_command(token, pilha):
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Comando pós-condição"
+    print [i.valor for i in pilha]
+    del pilha[:]
+    simb = Simbolo('int').label
+    pilha_comandos[-1].execution = simb
+
+    return '    JZ    ' + pilha_comandos[-1].end + '\n' + simb + ' '
+
+def else_command(token, pilha):
+    pass
+def end_command(token, pilha):
+    if DEBUG:
+        print "[ACAO SEMANTICA] -> Fim de comando"
+    print [i.valor for i in pilha]
+    del pilha[:]
+    #Depende do tipo
+    last_cmd = pilha_comandos.pop() 
+    if last_cmd.tipo == 'if':
+        return last_cmd.end + ' '
+    elif last_cmd.tipo == 'else': 
+        #desempilha if 
+        pilha_comandos.pop() 
+        return last_cmd.end + ' '
     return ''
 acoes_semanticas = {
     '38': {
@@ -466,9 +562,7 @@ acoes_semanticas = {
     '17': {
         'func_code': lambda token, pilha: fim_contexto(token, pilha, True)
     },
-    '248': {
-        'func_code': decr_ou_incr_ou_ref
-    },
+    #Métodos de expression
     '180': {
         'func_code': new_expression
     },
@@ -501,7 +595,33 @@ acoes_semanticas = {
     },
     '178': {
         'func_code': leave_expression
+    },
+    '219': {
+        'func_code': new_list_expression
+    },
+    '220': {
+        'func_code': end_list_expression
+    },
+    #Comandos
+    '144': { #do while
+        'func_code': init_command
+    },
+    '121': { #for
+        'func_code': init_command
+    },
+    '66': { #if
+        'func_code': init_command
+    },
+    '68': {
+        'func_code': middle_command
+    },
+    '77': {
+        'func_code': end_command
+    },
+    '81': { #else
+        'func_code': init_command
     }
+    
 }
 #Analisador Léxico
 class Atomo:
@@ -693,11 +813,9 @@ def main():
             return
 
         print "Programa aceito!\n" 
-        print '@ /0000 '  
-        print 'MAIN    SC  ' + tabela_simbolos.get('main').label + ' ; chama main\n'
-        print 'END     HM   END ; Fim\n'
-        print area_dados + area_code + area_constantes + open('stack.asm').read()
-        print "# TEMP"
+        res = '@ /0000 \n' + 'MAIN    SC  ' + tabela_simbolos.get('main').label + ' ; chama main\n' + 'END     HM   END ; Fim\n' + area_dados + area_code + area_constantes + open('stack.asm').read() +  "# TEMP\n"
+        print res
+        open('/home/ricardo/Documents/t.asm', 'w').write(res) 
     else:
         print "Erro de Sintaxe na linha " + str(cadeia_lida[-1].n_linha+1) + ". Token '" + cadeia_lida[-1].valor + "' não esperado: "
         print linhas[cadeia_lida[-1].n_linha] ,
@@ -747,6 +865,7 @@ def le_atomo(atomo, automatos, estado_atual, automato_atual, pilha):
                 if DEBUG:
                     print automato_atual + ": Saindo do estado " + estado_atual + " e desempilhando estado " + pilha[-1][0] + u", indo para a submáquina " + pilha[-1][1]
                 desempilha = pilha.pop()
+                chama_acao_semantica(None, desempilha[0])
                 return le_atomo(atomo, automatos, desempilha[0], desempilha[1], pilha)
 
     # Rejeita ou desempilha
