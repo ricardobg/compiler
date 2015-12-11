@@ -1,3 +1,4 @@
+ZERO 	  K =0    ; Constante 0 utilizada
 UM 		  K =1    ; Constante 1 utilizada
 DOIS 	  K =2    ; Constante 2 utilizada na implementação da pilha
 STACK 	$ 	=200  ; Pilha em si

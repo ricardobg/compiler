@@ -1,6 +1,7 @@
 int is_palindrome(int n)
 {
-   int reverse = 0, temp;
+   int reverse, temp;
+   reverse = 0
    temp = n;
    while( temp != 0 )
    {

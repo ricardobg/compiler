@@ -8,8 +8,10 @@ int binary_search (int array[100], int search, int n)
    while (first <= last) {
       if (array[middle] < search)
          first = middle + 1;    
-      else if (array[middle] == search) {
-      	return middle+1;
+      else {
+         if (array[middle] == search) {
+      	  return middle+1;
+         }
       }
       else
          last = middle - 1;
